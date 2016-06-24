@@ -1,4 +1,4 @@
-immutable SparseMatrixBSC{Tv, Ti <: Integer}  <: AbstractBlockMatrix{Tv, SparseMatrixBSC}
+immutable SparseMatrixBSC{Tv, Ti <: Integer}  <: AbstractBlockMatrix{Tv}
     R::Int                 # Block size in rows
     C::Int                 # Block size in columns
     m::Int                 # Number of rows
@@ -7,9 +7,9 @@ immutable SparseMatrixBSC{Tv, Ti <: Integer}  <: AbstractBlockMatrix{Tv, SparseM
     rowval::Vector{Ti}     # Row values of blocks
     nzval::Array{Tv, 3}    # Nonzero values, one "matrix" per block, nzval[i, j, block]
 
-  function SparseMatrixBSC(R::Integer, C::Integer,
-                           m::Integer, n::Integer,
-                           colptr::Vector{Ti}, rowval::Vector{Ti},  nzval::Array{Tv, 3})
+    function SparseMatrixBSC(R::Integer, C::Integer,
+                             m::Integer, n::Integer,
+                             colptr::Vector{Ti}, rowval::Vector{Ti},  nzval::Array{Tv, 3})
       m < 0 && throw(ArgumentError("number of rows (m) must be ≥ 0, got $m"))
       n < 0 && throw(ArgumentError("number of columns (n) must be ≥ 0, got $n"))
 
@@ -43,6 +43,10 @@ nzblockrange(A::SparseMatrixBSC, col::Integer) =  Int(A.colptr[col]):Int(A.colpt
 Base.LinearIndexing(::Type{SparseMatrixBSC}) = Base.LinearSlow()
 Base.size(A::SparseMatrixBSC) = (A.m, A.n)
 Base.nnz(A::SparseMatrixBSC) = length(A.nzval)
+
+function rowinblock(A, rowval, i)
+    ((rowval - 1) * A.R + 1) <= i <= rowval * A.R
+end
 
 # Computes the blockindex which is the block I, J where the element with global index i, j
 # would occupy
@@ -94,9 +98,9 @@ end
 
 
 
- function Base.setindex!{T,N}(block_array::BlockArray{T, N}, v, block_index::BlockIndex{N})
-      getblock(block_array, block_index.I...)[block_index.α...] = v
-  end
+#function Base.setindex!{T,N}(block_array::BlockArray{T, N}, v, block_index::BlockIndex{N})
+#    getblock(block_array, block_index.I...)[block_index.α...] = v
+#end
 
 function getblock{T}(A::SparseMatrixBSC{T}, I::Integer, J::Integer)
     @boundscheck checkbounds(A, I * blocksize(A, 1), J * blocksize(A, 2))
@@ -136,8 +140,8 @@ end
 
 function Base.getindex{T}(A::SparseMatrixBSC{T}, i::Integer, j::Integer)
     @boundscheck checkbounds(A, i, j)
-    J = blockcol(A, j)
-    I = blockrow(A, i)
+    J = (j - 1) ÷ A.C + 1
+    I = (i - 1) ÷ A.R + 1
     nzrange = nzblockrange(A, J)
     # No block stored in this column
     if start(nzrange) > last(nzrange)
