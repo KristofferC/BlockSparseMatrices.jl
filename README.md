@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/KristofferC/BlockSparseMatrices.jl.svg?branch=master)](https://travis-ci.org/KristofferC/BlockSparseMatrices.jl)
 
-```
+```jl
 A = sprand(10, 10, 0.5)
 
 block_size_rows = 2
