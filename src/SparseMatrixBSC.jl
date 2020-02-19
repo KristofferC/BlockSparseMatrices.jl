@@ -1,4 +1,4 @@
-immutable SparseMatrixBSC{Tv, Ti <: Integer}  <: AbstractBlockMatrix{Tv}
+struct SparseMatrixBSC{Tv, Ti <: Integer}
     R::Int                 # Block size in rows
     C::Int                 # Block size in columns
     m::Int                 # Number of rows
@@ -9,7 +9,7 @@ immutable SparseMatrixBSC{Tv, Ti <: Integer}  <: AbstractBlockMatrix{Tv}
 
     function SparseMatrixBSC(R::Integer, C::Integer,
                              m::Integer, n::Integer,
-                             colptr::Vector{Ti}, rowval::Vector{Ti},  nzval::Array{Tv, 3})
+                             colptr::Vector{Ti}, rowval::Vector{Ti},  nzval::Array{Tv, 3}) where {Ti, Tv}
       m < 0 && throw(ArgumentError("number of rows (m) must be ≥ 0, got $m"))
       n < 0 && throw(ArgumentError("number of columns (n) must be ≥ 0, got $n"))
 
@@ -18,13 +18,13 @@ immutable SparseMatrixBSC{Tv, Ti <: Integer}  <: AbstractBlockMatrix{Tv}
 
       m % R != 0 && throw(ArgumentError("row block size: $(R) must evenly divide number of rows: $m"))
       n % C != 0 && throw(ArgumentError("column block size: $(C) must evenly divide number of rows: $n"))
-      new(Int(R), Int(C), Int(m), Int(n), colptr, rowval, nzval)
+      new{Tv, Ti}(Int(R), Int(C), Int(m), Int(n), colptr, rowval, nzval)
   end
 end
 
-function SparseMatrixBSC{Tv, Ti <: Integer}(m::Integer, n::Integer, colptr::Vector{Ti}, rowval::Vector{Ti}, nzval::Array{Tv, 3})
+function SparseMatrixBSC(m::Integer, n::Integer, colptr::Vector{Ti}, rowval::Vector{Ti}, nzval::Array{Tv, 3}) where {Tv, Ti<:Integer}
     R, C = size(nzval, 1), size(nzval, 2)
-    SparseMatrixBSC{Tv, Ti}(R, C, m, n, colptr, rowval, nzval)
+    SparseMatrixBSC(R, C, m, n, colptr, rowval, nzval)
 end
 
 #####################
@@ -40,9 +40,10 @@ blocksize(A::SparseMatrixBSC, i::Int) = blocksize(A)[i]
 nnzblocks(A::SparseMatrixBSC) = size(A.nzval, 1) * size(A.nzval, 2)
 nzblockrange(A::SparseMatrixBSC, col::Integer) =  Int(A.colptr[col]):Int(A.colptr[col + 1] - 1)
 
-Base.LinearIndexing(::Type{SparseMatrixBSC}) = Base.LinearSlow()
 Base.size(A::SparseMatrixBSC) = (A.m, A.n)
-Base.nnz(A::SparseMatrixBSC) = length(A.nzval)
+Base.size(A::SparseMatrixBSC, i) = size(A)[i]
+Base.eltype(A::SparseMatrixBSC) = eltype(A.nzval)
+SparseArrays.nnz(A::SparseMatrixBSC) = length(A.nzval)
 
 function rowinblock(A, rowval, i)
     ((rowval - 1) * A.R + 1) <= i <= rowval * A.R
@@ -102,12 +103,12 @@ end
 #    getblock(block_array, block_index.I...)[block_index.α...] = v
 #end
 
-function getblock{T}(A::SparseMatrixBSC{T}, I::Integer, J::Integer)
+function getblock(A::SparseMatrixBSC{T}, I::Integer, J::Integer) where {T}
     @boundscheck checkbounds(A, I * blocksize(A, 1), J * blocksize(A, 2))
     getblock!(zeros(T, blocksize(A)), A, I, J)
 end
 
-function getblock!{T}(block::Matrix{T}, A::SparseMatrixBSC{T}, I::Integer, J::Integer)
+function getblock!(block::Matrix{T}, A::SparseMatrixBSC{T}, I::Integer, J::Integer) where {T}
     @boundscheck checkbounds(A, I * blocksize(A, 1), J * blocksize(A, 2))
     @boundscheck @assert size(block) == blocksize(A, 1)
 
@@ -132,13 +133,13 @@ end
 ############
 # Printing #
 ############
-function Base.showarray(io::IO, A::SparseMatrixBSC;
+function Base.show(io::IO, A::SparseMatrixBSC;
                    header::Bool=true, repr=false)
     print(io, A.m, "×", A.n, " sparse block matrix with ", nnzblocks(A), " ", eltype(A), " block entries of size ",
         blocksize(A, 1),"×",blocksize(A, 2))
 end
 
-function Base.getindex{T}(A::SparseMatrixBSC{T}, i::Integer, j::Integer)
+function Base.getindex(A::SparseMatrixBSC{T}, i::Integer, j::Integer) where {T}
     @boundscheck checkbounds(A, i, j)
     J = (j - 1) ÷ A.C + 1
     I = (i - 1) ÷ A.R + 1
@@ -166,8 +167,7 @@ end
 # Conversions CSC <-> BSC #
 ###########################
 
-# Strategy:
-function SparseMatrixCSC{Tv, Ti <: Integer}(A::SparseMatrixBSC{Tv, Ti})
+function SparseArrays.SparseMatrixCSC(A::SparseMatrixBSC{Tv, Ti}) where {Tv, Ti <: Integer}
     if blocksize(A) == (1,1)
         return SparseMatrixCSC(A.m, A.n, A.colptr, A.rowval, vec(A.nzval))
     end
@@ -199,8 +199,7 @@ function SparseMatrixCSC{Tv, Ti <: Integer}(A::SparseMatrixBSC{Tv, Ti})
     return SparseMatrixCSC(A.m, A.n, colptr, rowval, nzval)
 end
 
-
-function SparseMatrixBSC{Tv, Ti <: Integer}(A::SparseMatrixCSC{Tv, Ti}, R::Integer, C::Integer)
+function SparseMatrixBSC(A::SparseMatrixCSC{Tv, Ti}, R::Integer, C::Integer) where {Tv, Ti}
     if (R, C) == (1,1)
         return SparseMatrixBSC(1, 1, A.m, A.n, A.colptr, A.rowval, reshape(A.nzval, length(A.nzval), 1, 1))
     end
@@ -255,7 +254,10 @@ function SparseMatrixBSC{Tv, Ti <: Integer}(A::SparseMatrixCSC{Tv, Ti}, R::Integ
         end
 
         # Pick out the unique block rows and put them into rowval
+
+        #######################
         sort!(rows) # <- A bit of a bottle enck, takes about 30% of tot time.
+        #######################
         rowval[row_counter] = rows[1] # We have at least one value in rows so this is ok
         row_counter += 1
         for i in 2:length(rows)
@@ -294,44 +296,43 @@ function SparseMatrixBSC{Tv, Ti <: Integer}(A::SparseMatrixCSC{Tv, Ti}, R::Integ
 end
 
 
-
 ##########
 # LinAlg #
 ##########
 
 # We do dynamic dispatch here so that the size of the blocks are known at compile time
-function A_mul_B!{Tv}(b::Vector{Tv}, A::SparseMatrixBSC{Tv}, x::Vector{Tv})
+function LinearAlgebra.mul!(b::Vector{Tv}, A::SparseMatrixBSC{Tv}, x::Vector{Tv}) where {Tv}
     if blocksize(A) == (1,1)
-        A_mul_B!(b, SparseMatrixCSC(A), x)
+        mul!(b, SparseMatrixCSC(A), x)
     else
-        _A_mul_B!(b, A, x, Val{A.C}, Val{A.R})
+        _mul!(b, A, x, Val(A.C), Val(A.R))
     end
 end
 
-function _A_mul_B!{Tv, C, R}(b::Vector{Tv}, A::SparseMatrixBSC{Tv}, x::Vector{Tv},
-                             ::Type{Val{C}}, ::Type{Val{R}})
+function _mul!(b::Vector{Tv}, A::SparseMatrixBSC{Tv}, x::Vector{Tv},
+                             ::Val{C}, ::Val{R}) where {Tv, C, R}
     fill!(b, 0.0)
     n_cb, n_rb = nblocks(A)
     for J in 1:n_cb
         j_offset = (J - 1)  * blocksize(A, 2)
         for r in nzblockrange(A, J)
             @inbounds i_offset = (A.rowval[r] - 1) * blocksize(A, 1)
-            matvec_kernel!(b, A, x, r, i_offset, j_offset, Val{C}, Val{R})
+            matvec_kernel!(b, A, x, r, i_offset, j_offset, Val(C), Val(R))
         end
     end
     return b
 end
 
 # TODO: Possibly SIMD.jl and do a bunch of simd magic coolness for small mat * vec
-@inline function matvec_kernel!{C, R, T}(b::Vector{T}, A::SparseMatrixBSC{T}, x::Vector{T}, r,
-                                              i_offset, j_offset, ::Type{Val{C}}, ::Type{Val{R}})
-    @inbounds for j in 1:R
-        for i in 1:C
+@inline function matvec_kernel!(b::Vector{T}, A::SparseMatrixBSC{T}, x::Vector{T}, r,
+                                i_offset, j_offset, ::Val{C}, ::Val{R}) where {C, R, T}
+    @inbounds for j in 1:C
+        for i in 1:R
             b[i_offset + i] += A.nzval[i, j, r] * x[j_offset + j]
         end
     end
 end
 
-function Base.:*{Tv}(A::SparseMatrixBSC{Tv}, x::Vector{Tv})
-    A_mul_B!(similar(x, A.m), A, x)
+function Base.:*(A::SparseMatrixBSC{Tv}, x::Vector{Tv}) where {Tv}
+    mul!(similar(x, A.m), A, x)
 end

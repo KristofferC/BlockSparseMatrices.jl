@@ -1,10 +1,12 @@
 module BlockSparseMatrices
 
 using BlockArrays
+using LinearAlgebra
+using SparseArrays
 
-import BlockArrays: nblocks, getblock, getblock!, setblock!, BlockIndex
+#import BlockArrays: nblocks, getblock, getblock!, setblock!, BlockIndex
 
-import Base: Order.Forward, A_mul_B!, SparseMatrixCSC
+import Base: Order.Forward
 
 export SparseMatrixBSC, nnzblocks, nblocks
 

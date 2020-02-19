@@ -1,0 +1,13 @@
+name = "BlockSparseMatrices"
+uuid = "b3460a73-995b-43d5-a62c-d8033ccccf83"
+version = "0.1.0"
+
+[deps]
+BlockArrays = "8e7c35d0-a365-5155-bbbb-fb81a777f24e"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+BlockArrays = "0.11"
+julia = "1.0"
