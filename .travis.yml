@@ -3,12 +3,8 @@ language: julia
 os:
   - linux
   - osx
+  - windows
 julia:
-  - release
-  - nightly
+  - 1
 notifications:
   email: false
-# uncomment the following lines to override the default test script
-#script:
-#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("BlockSparseMatrices"); Pkg.test("BlockSparseMatrices"; coverage=true)'
