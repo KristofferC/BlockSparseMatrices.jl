@@ -17,7 +17,7 @@ struct SparseMatrixBSC{Tv, Ti <: Integer}
       C < 0 && throw(ArgumentError("block size x must be ≥ 0, got $y_block_size"))
 
       m % R != 0 && throw(ArgumentError("row block size: $(R) must evenly divide number of rows: $m"))
-      n % C != 0 && throw(ArgumentError("column block size: $(C) must evenly divide number of rows: $n"))
+      n % C != 0 && throw(ArgumentError("column block size: $(C) must evenly divide number of columns: $n"))
       new{Tv, Ti}(Int(R), Int(C), Int(m), Int(n), colptr, rowval, nzval)
   end
 end
